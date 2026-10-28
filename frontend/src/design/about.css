@@ -1,0 +1,117 @@
+.services {
+    padding: 50px 0;
+    background: rgb(238,174,202);
+    background: linear-gradient(90deg, rgba(238,174,202,1) 0%, rgba(148,187,233,1) 100%);
+}
+
+.services h3 {
+    font-size: 40px;
+    text-align: center;
+    margin-bottom: 40px;
+    color: white;
+    font-family: 'Arial', sans-serif;
+    font-weight: 600;
+}
+
+.services .content {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+}
+
+.services .content .main-content {
+    width: 400px;
+    height: 500px;
+    margin-top: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    animation: comingup 2s ease-in 0ms 1 forwards;
+}
+
+.services .content .main-content:hover {
+    transform: translateY(10px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 1);
+}
+
+.services .content .main-content .content-image {
+    width: 200px;
+    height: 200px;
+    border: 3px solid #006A4E;
+    border-radius: 50%;
+    margin-top: 20px;
+    object-fit: cover;
+}
+
+.services .content .main-content h2 {
+    margin-top: 20px;
+    font-size: 25px;
+    color: white;
+    font-family: 'Arial', sans-serif;
+    text-align: center;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.services .content .main-content:hover h2 {
+    color: #4CAF50;
+}
+
+@media (max-width: 800px){
+    .services .content {
+        display: flex;
+        justify-content: space-around;
+        flex-wrap: wrap;
+    }
+    .services .content .main-content {
+        width: 350px;
+        height: 300px;
+        background: rgba(255, 255, 255, 0.1);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .services .content .main-content .content-image {
+        width: 100px;
+        height: 100px;
+        border: 3px solid #4CAF50;
+        border-radius: 50%;
+        margin-top: 20px;
+        object-fit: cover;
+    }
+
+    .services .content .main-content h2 {
+        margin-top: 20px;
+        font-size: 20px;
+        color: white;
+        font-family: 'Arial', sans-serif;
+        text-align: center;
+        font-weight: 500;
+        transition: color 0.3s ease;
+    }
+
+    .services .content .main-content:hover {
+        transform: translateY(-20px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    }
+}
+
+@keyframes comingup{
+    0%{
+        transform: translateY(-200px);
+    }
+    
+    100%{
+        transform: translateY(0);
+    }
+}

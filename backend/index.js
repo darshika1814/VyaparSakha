@@ -1,0 +1,42 @@
+require('node:dns').setServers(['8.8.8.8', '1.1.1.1']);
+require('dotenv').config();
+const mongoose = require('mongoose');
+const express = require('express');
+const morgan = require('morgan');
+const cors = require('cors');
+const userRouter = require('./routes/user');
+const transRouter = require('./routes/transaction');
+const cityRouter = require('./routes/city');
+const imageRouter = require('./routes/image');
+const billRouter = require('./routes/bill');
+const smsrouter = require('./routes/sms');
+
+main().catch(err => console.log(err));
+async function main() {
+  await mongoose.connect(`${process.env.CLOUD_DATABASE}`);
+  console.log('Database Connected');
+}
+
+const server = express();
+
+server.use(express.json({  extended: true })); 
+server.use(express.urlencoded({  extended: true }));
+server.use(morgan('default'));
+server.use(express.static('public'));
+server.use(cors());
+
+server.get('/',(req,res)=>{
+    res.send("Hello World");
+});
+
+server.use('/user',userRouter.router);
+server.use('/trans',transRouter.router);
+server.use('/city',cityRouter.router);
+server.use('/uploads',imageRouter.router);
+server.use('/bill',billRouter.router);
+server.use('/sms',smsrouter.router);
+
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
