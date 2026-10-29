@@ -3,6 +3,7 @@ const multer  = require('multer');
 const fs = require('fs');
 const path = require('path');
 const cloudinary = require("cloudinary").v2;
+const { protect } = require('../middleware/auth');
 
 const uploadDir = path.join(__dirname, '..', 'uploads');
 fs.mkdirSync(uploadDir, { recursive: true });
@@ -29,7 +30,10 @@ console.log("Cloudinary configuration check:", {
 
 const router = express.Router();
 
-const uploadoncloudinary = async (localFilePath) => {
+// Every image route requires a logged-in shopkeeper.
+router.use(protect);
+
+const uploadoncloudinary = async (localFilePath, shopkeeperId) => {
     try {
         if (!localFilePath) {
             return null;
@@ -37,7 +41,8 @@ const uploadoncloudinary = async (localFilePath) => {
 
         const result = await cloudinary.uploader.upload(localFilePath, {
             resource_type: "image",
-            folder: "Bills"
+            // Each shopkeeper's bills live in their own folder.
+            folder: `Bills/${shopkeeperId}`
         });
 
         console.log("File uploaded:", result.secure_url);
@@ -64,9 +69,28 @@ const storage = multer.diskStorage({
     },
   });
   
-const upload = multer({ storage });
+const upload = multer({
+    storage,
+    limits: { fileSize: 10 * 1024 * 1024, files: 3 },
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype && file.mimetype.startsWith('image/')) {
+            return cb(null, true);
+        }
+        return cb(new Error('Only image files are allowed.'));
+    }
+});
 
-router.post("/images", upload.array("billimage", 3), async (req, res) => {
+// Run multer manually so upload problems return a clean 400.
+const handleUpload = (req, res, next) => {
+    upload.array("billimage", 3)(req, res, (err) => {
+        if (err) {
+            return res.status(400).json({ message: err.message });
+        }
+        return next();
+    });
+};
+
+router.post("/images", handleUpload, async (req, res) => {
     try {
         if (!req.files || req.files.length === 0) {
             return res.status(400).json({
@@ -77,7 +101,7 @@ router.post("/images", upload.array("billimage", 3), async (req, res) => {
 
         // Upload sequentially instead of sending concurrent requests.
         for (const file of req.files) {
-            const url = await uploadoncloudinary(file.path);
+            const url = await uploadoncloudinary(file.path, req.shopkeeper.id);
 
             if (url) {
                 uploadedUrls.push(url);
@@ -127,13 +151,21 @@ router.delete('/deleteimage', async (req, res) => {
             });
         }
 
-        const results = await Promise.all(
-            imageUrls.map(async (imageUrl) => {
-                const publicId = getPublicIdFromUrl(imageUrl);
+        // A shopkeeper may only delete images in their own folder.
+        const ownPrefix = `Bills/${req.shopkeeper.id}/`;
+        const publicIds = imageUrls.map((imageUrl) =>
+            typeof imageUrl === 'string' ? getPublicIdFromUrl(imageUrl) : ''
+        );
 
-                if (!publicId) {
-                    throw new Error('Invalid Cloudinary image URL');
-                }
+        if (publicIds.some((id) => !id || !id.startsWith(ownPrefix) || id.includes('..'))) {
+            return res.status(403).json({
+                success: false,
+                message: 'You can only delete your own bill images.'
+            });
+        }
+
+        const results = await Promise.all(
+            publicIds.map(async (publicId) => {
 
                 return cloudinary.uploader.destroy(publicId, {
                     resource_type: 'image'

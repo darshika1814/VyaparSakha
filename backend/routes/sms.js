@@ -1,30 +1,51 @@
 const twilio = require('twilio');
 const express = require('express');
-
-const accountSid = `${process.env.TWILIO_ACCOUNTSID}`;  // Replace with your Twilio Account SID
-const authToken = `${process.env.TWILIO_AUTHTOKEN}`;    // Replace with your Twilio Auth Token
-
-const client = new twilio(accountSid, authToken);
+const { protect } = require('../middleware/auth');
+const transController = require('../controller/transaction');
+const asyncHandler = require('../utils/asyncHandler');
 
 const router = express.Router();
 
-router.post('/send-sms', (req, res) => {
-    const { to, amount } = req.body;  // Get recipient phone number and message from request body
-  
-    // Send SMS using Twilio
-    client.messages
-      .create({
-        body: `Hi, This is a gentle remainder that you have to pay a sum of Rs. ${amount} to Ganapati General Store as your left out balance`,   // The message content
-        from: `${process.env.TWILIO_NUMBER}`,  // Your Twilio phone number (Replace with your Twilio number)
-        to: to
-      })
-      .then(message => {
-        res.status(200).json({ success: true, sid: message.sid });
-      })
-      .catch(err => {
+router.use(protect);
+
+let client;
+function getClient() {
+    if (!client) {
+        client = twilio(
+            process.env.TWILIO_ACCOUNTSID,
+            process.env.TWILIO_AUTHTOKEN
+        );
+    }
+    return client;
+}
+
+// The recipient and amount are taken from the database, never from the
+// request, so a shopkeeper can only text their own customers.
+router.post('/send-sms', asyncHandler(async (req, res) => {
+    const customer = await transController.findOwnedCustomer(
+        req.shopkeeper.id,
+        req.body.customerId
+    );
+    if (!customer) {
+        return res.status(404).json({ success: false, message: 'Customer not found.' });
+    }
+
+    const { balance } = await transController.getBalanceSummary(
+        req.shopkeeper.id,
+        customer._id
+    );
+
+    try {
+        const message = await getClient().messages.create({
+            body: `Hi, This is a gentle remainder that you have to pay a sum of Rs. ${balance} to ${req.shopkeeper.shopName} as your left out balance`,
+            from: process.env.TWILIO_NUMBER,
+            to: `+91${customer.mobileno}`
+        });
+        res.status(200).json({ success: true, sid: message.sid, message: 'Reminder SMS sent successfully.' });
+    } catch (err) {
         console.error('Error sending SMS:', err);
-        res.status(500).json({ success: false, error: 'Failed to send SMS' });
-      });
-  });
+        res.status(500).json({ success: false, message: 'Failed to send SMS' });
+    }
+}));
 
 exports.router = router;

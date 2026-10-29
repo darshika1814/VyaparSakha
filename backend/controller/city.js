@@ -1,43 +1,50 @@
-let model = require('../model/city');
-const City = model.City;
+const { City } = require('../model/city');
+const { User } = require('../model/user');
+const { Transaction } = require('../model/transaction');
+const asyncHandler = require('../utils/asyncHandler');
+const { isValidId } = require('../utils/ids');
 
-model = require('../model/user');
-const User = model.User;
+exports.getCity = asyncHandler(async (req, res) => {
+    const cities = await City.find({ shopkeeper: req.shopkeeper.id });
+    res.json(cities);
+});
 
-model = require('../model/transaction');
-const Transaction = model.Transaction;
-
-exports.getCity = async (req,res)=>{
-    const city = await City.find();
-    res.json(city);
-}
-
-exports.addCity = async (req,res)=>{
-    let city = await City.findOne({name : req.body.name});
-    if(!city){
-        city = new City();
-        city.name = req.body.name;
-        await city.save();
-        res.json({Success : "City added"});
+exports.addCity = asyncHandler(async (req, res) => {
+    const name = String(req.body.name || '').trim();
+    if (!name) {
+        return res.status(400).json({ message: 'City name is required.' });
     }
-    else{
-        res.send("Sorry a city with same name exist");
+
+    try {
+        await City.create({ shopkeeper: req.shopkeeper.id, name });
+    } catch (error) {
+        if (error.code === 11000) {
+            return res
+                .status(409)
+                .json({ message: 'Sorry a city with same name exist' });
+        }
+        throw error;
     }
-}
+    res.status(201).json({ Success: 'City added' });
+});
 
-exports.deleteCity = async (req,res)=>{
-    let city = await City.findById(req.params.id);
-    let users = await User.find({ address: city.name }); // Use plural 'users' to represent an array of users
-    let userIds = users.map(user => user._id); // Extract user IDs from the array of users
+exports.deleteCity = asyncHandler(async (req, res) => {
+    if (!isValidId(req.params.id)) {
+        return res.status(404).json({ message: 'City not found.' });
+    }
 
-    // Delete transactions associated with the users
-    let transactions = await Transaction.deleteMany({ user: { $in: userIds } });
+    const shopkeeper = req.shopkeeper.id;
+    const city = await City.findOne({ _id: req.params.id, shopkeeper });
+    if (!city) {
+        return res.status(404).json({ message: 'City not found.' });
+    }
 
-    // Delete users
-    let deletedUsers = await User.deleteMany({ _id: { $in: userIds } }); // Use user IDs to delete users
+    const users = await User.find({ address: city.name, shopkeeper });
+    const userIds = users.map((user) => user._id);
 
-    // Delete city
-    let deletedCity = await City.findByIdAndDelete(req.params.id);
+    await Transaction.deleteMany({ user: { $in: userIds }, shopkeeper });
+    await User.deleteMany({ _id: { $in: userIds }, shopkeeper });
+    await City.deleteOne({ _id: city._id, shopkeeper });
 
-    res.json({ success: "Successfully deleted" });
-}
+    res.json({ success: 'Successfully deleted' });
+});

@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 
 export default function Image() {
     const [photo, setPhoto] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-
-    const baseUrl = process.env.REACT_APP_BASE_URL;
 
     useEffect(() => {
         const getImage = async () => {
@@ -24,9 +22,7 @@ export default function Image() {
             }
 
             try {
-                const response = await axios.get(
-                    `${baseUrl}/trans/gettrans/${id}`
-                );
+                const response = await api.get(`/trans/gettrans/${id}`);
 
                 const images = response.data?.images;
 
@@ -48,7 +44,7 @@ export default function Image() {
         };
 
         getImage();
-    }, [baseUrl]);
+    }, []);
 
     return (
         <div className="container">

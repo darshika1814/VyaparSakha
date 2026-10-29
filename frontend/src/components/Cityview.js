@@ -1,4 +1,4 @@
-import axios from 'axios';
+import api, { errorMessage } from '../api';
 import React from 'react'
 import { Link } from 'react-router-dom'
 
@@ -8,18 +8,15 @@ export default function Cityview(props) {
         localStorage.setItem("city-name",name);
     }
 
-    const baseUrl = process.env.REACT_APP_BASE_URL;
-
     const deleteCity = async (id)=>{
         try {
             if (window.confirm('Are you sure you want to delete the city')){
-              const response = await axios.delete(`${baseUrl}/city/deletecity/${id}`);
-              console.log(response.data);
+              await api.delete(`/city/deletecity/${id}`);
               window.location.reload();
             }
           //Please see to reload something.....
         } catch (error) {
-          console.error('Error:', error.response.data); 
+          window.alert(errorMessage(error, 'Unable to delete the city.'));
         }
     }
 

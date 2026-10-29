@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { jsPDF } from "jspdf";
 import Billview from "./Billview";
-import axios from 'axios';
+import api, { errorMessage } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 // Function to generate the PDF
-function save_pdf(customer, products) {
+async function save_pdf(customer, products, shop) {
   const doc = new jsPDF();
   const pageHeight = doc.internal.pageSize.height;
   let yPosition = 100;  // Start product table lower on the page
@@ -12,13 +13,15 @@ function save_pdf(customer, products) {
   // Store Header (Top Left)
   doc.setFontSize(18);
   doc.setTextColor(40, 40, 99);
-  doc.text("Ganpati General Store", 10, 10); // Store name
+  doc.text(shop?.shopName || "", 10, 10); // Store name
   doc.setFontSize(12);
   doc.setTextColor(99, 99, 99);
-  doc.text("Ware House Road", 10, 20);
-  doc.text("xxx, Rajasthan, 335xxx", 10, 25);
-  doc.text("Phone: (+91) 9414536xxx, 9414501xxx", 10, 30);
-  doc.text("GST IN: 123456789", 10, 35);
+  const shopLines = [
+    shop?.address,
+    shop?.mobileno ? `Phone: ${shop.mobileno}` : "",
+    shop?.gstin ? `GST IN: ${shop.gstin}` : ""
+  ].filter(Boolean);
+  shopLines.forEach((line, i) => doc.text(line, 10, 20 + i * 5));
 
   // Invoice Details (Top Right)
   const invoiceNumber = Math.floor(Math.random() * 1000000); // Generate a random invoice number
@@ -100,30 +103,25 @@ function save_pdf(customer, products) {
   // Save PDF
   doc.save("Bill.pdf");
 
-  const baseUrl = process.env.REACT_APP_BASE_URL;
+  // Delete this shopkeeper's invoice items and the saved customer draft.
+  try {
+    await api.delete('/bill/deleteAll');
+  } catch (error) {
+    console.error("Error deleting bills:", error);
+  }
 
-  // Delete All Bills from Database and Clear Local Storage
-  axios.delete(`${baseUrl}/bill/deleteAll`)
-    .then(response => {
-      console.log(response.data);
-    })
-    .catch(error => {
-      console.error("Error deleting bills:", error);
-    });
-  
-  localStorage.clear();
+  localStorage.removeItem("customer");
   window.location.reload();
 }
 
 
 
 export default function Bill() {
+  const { shopkeeper } = useAuth();
   const [customer, setCustomer] = useState(() => {
     const savedCustomer = localStorage.getItem("customer");
     return savedCustomer ? JSON.parse(savedCustomer) : { name: "", mobile: "", address: "" };
   });
-
-  const baseUrl = process.env.REACT_APP_BASE_URL;
 
   const [item, setItem] = useState({ name: "", quantity: 0, price: 0 });
   const [products, setProducts] = useState([]);
@@ -147,17 +145,23 @@ export default function Bill() {
   };
 
   const getproduct = async ()=>{
-    const product = await axios.get(`${baseUrl}/bill/getproduct`);
-    const json = await product.data;
-    setProducts(json);
+    try {
+      const product = await api.get('/bill/getproduct');
+      setProducts(product.data);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
   }
 
   const handleClick = async(e) => {
-    const product = await axios.post(`${baseUrl}/bill/addproduct`,{
-      name : item.name, price: item.price, quantity: item.quantity
-    });
-    console.log(product.data);
-    setItem({ name: "", quantity: 0, price: 0 });
+    try {
+      await api.post('/bill/addproduct',{
+        name : item.name, price: item.price, quantity: item.quantity
+      });
+      setItem({ name: "", quantity: 0, price: 0 });
+    } catch (error) {
+      window.alert(errorMessage(error, 'Unable to add the item.'));
+    }
   };
 
   useEffect(()=>{
@@ -301,7 +305,7 @@ export default function Bill() {
                     <button
                       type="button"
                       className="btn btn-success"
-                      onClick={() => save_pdf(customer, products)}
+                      onClick={() => save_pdf(customer, products, shopkeeper)}
                     >
                       Generate Invoice
                     </button>

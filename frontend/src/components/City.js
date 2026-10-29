@@ -1,19 +1,18 @@
 import React, { useEffect, useState } from 'react'
 import Cityview from './Cityview';
-import axios from 'axios';
+import api, { errorMessage } from '../api';
 
 export default function City() {
 
     const [city,setCity] = useState(null);
 
-    const baseUrl = process.env.REACT_APP_BASE_URL;
-
     const getcity = async ()=>{
-        const response = await fetch(`${baseUrl}/city`,{
-            method: 'GET'
-        });
-        const json = await response.json();
-        setCity(json);
+        try {
+            const response = await api.get('/city');
+            setCity(response.data);
+        } catch (error) {
+            console.error('Error fetching cities:', error);
+        }
     }
 
     
@@ -22,12 +21,11 @@ export default function City() {
 
     const addCity = async (name)=>{
         try {
-            const response = await axios.post(`${baseUrl}/city/addcity`, {
-                name
-            });
-            console.log(response.data); // Assuming response data is JSON
+            await api.post('/city/addcity', { name });
+            setSearchName('');
+            await getcity();
         } catch (error) {
-            console.error('Error:', error.response.data); // Log error response
+            window.alert(errorMessage(error, 'Unable to add the city.'));
         }
     }
 
@@ -40,12 +38,12 @@ export default function City() {
         <div className='center'>
             <div className='container border rounded my-2'>
                 <h1 style={{fontFamily:'Recursive'}}>Add a City</h1>
-                <form className='container my-3'>
+                <form className='container my-3' onSubmit={(e)=>{ e.preventDefault(); addCity(searchName); }}>
                     <div className="mb-3">
                     <label htmlFor="city">City</label>
                     <input type="text"   className="form-control" id="city" name='city' placeholder="Enter city" autoComplete="off"  value={searchName} onChange={(e) => setSearchName(e.target.value)}/>
                     </div>
-                    <button type="submit" className="btn btn-primary" onClick={()=>addCity(searchName)}>Add a City</button>
+                    <button type="submit" className="btn btn-primary">Add a City</button>
                 </form>
             </div>
         </div>

@@ -1,35 +1,33 @@
 import React,{ useState, useEffect } from 'react'
 // import noteContext from '../context/NoteContext';
 import  User  from './User';
-import axios from 'axios';
+import api, { errorMessage } from '../api';
 
 export default function Cityaccount() {
 
     let city = localStorage.getItem("city-name");
 
-    const baseUrl = process.env.REACT_APP_BASE_URL;
-
-    const [user,setUser] = useState({name:"",mobileno:"",address:city});
+    const [user,setUser] = useState([]);
     const [newuser,setNewuser] = useState({name:"",mobileno:"",address:city});
 
     const addUser = async (name, mobileno, address) => {
     try {
-        const response = await axios.post(`${baseUrl}/user/createUser`, {
-        name,
-        mobileno,
-        address
-        });
-        console.log(response.data); // Assuming response data is JSON
+        await api.post('/user/createUser', { name, mobileno, address });
+        return true;
     } catch (error) {
-        console.error('Error:', error.response.data); // Log error response
+        window.alert(errorMessage(error, 'Unable to add the customer.'));
+        return false;
     }
     };
 
-    const handleClick = (e)=>{
+    const handleClick = async (e)=>{
         e.preventDefault();
-        addUser(newuser.name,newuser.mobileno,newuser.address);
-        setUser(user.concat(newuser));
-        setNewuser({name:"",mobileno:"",address:city})
+        const added = await addUser(newuser.name,newuser.mobileno,newuser.address);
+        if (added) {
+            setNewuser({name:"",mobileno:"",address:city});
+            e.target.form?.reset();
+            await getUser();
+        }
     }
 
     const onChange = (e)=>{
@@ -38,12 +36,8 @@ export default function Cityaccount() {
 
     const getUser = async () => {
         try {
-            const response = await fetch(`${baseUrl}/user/getbycity?address=${city}`, {
-                method: 'GET'
-            });
-
-            const json = await response.json();
-            setUser(json);
+            const response = await api.get('/user/getbycity', { params: { address: city } });
+            setUser(response.data);
         } catch (error) {
             console.error('Error fetching user data:', error);
         }

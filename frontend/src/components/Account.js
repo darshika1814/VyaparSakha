@@ -1,27 +1,28 @@
 import React, { useEffect, useState } from 'react'
 import  User  from './User';
+import api from '../api';
 
 export default function Account() {
 
     const [user,Setuser] = useState(null);
     const [searchName, setSearchName] = useState('');
-    const baseUrl = process.env.REACT_APP_BASE_URL;
-
 
     const getAlluser = async()=>{
-        const response = await fetch(`${baseUrl}/user/`,{
-            method: 'GET'
-        });
-        const json = await response.json();
-        Setuser(json);
+        try {
+            const response = await api.get('/user/');
+            Setuser(response.data);
+        } catch (error) {
+            console.error('Error fetching accounts:', error);
+        }
     }
 
     const handleSearch = async () => {
-        const response = await fetch(`${baseUrl}/user/searchuser?name=${searchName}`, {
-            method: 'GET'
-        });
-        const json = await response.json();
-        Setuser(json);
+        try {
+            const response = await api.get('/user/searchuser', { params: { name: searchName } });
+            Setuser(response.data);
+        } catch (error) {
+            console.error('Error searching accounts:', error);
+        }
     }
 
     useEffect(()=>{
@@ -37,7 +38,7 @@ export default function Account() {
         </div>
         <div className='user-list'>
             {Array.isArray(user) && user.map((person) => {
-                return <User id={person._id} name={person.name} mobileno={person.mobileno} address={person.address}></User>
+                return <User key={person._id} id={person._id} name={person.name} mobileno={person.mobileno} address={person.address}></User>
             })}
         </div>
     </div>

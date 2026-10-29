@@ -1,16 +1,19 @@
 const express = require('express');
-const userController = require('../controller/transaction');
+const transController = require('../controller/transaction');
+const { protect } = require('../middleware/auth');
 
 const router = express.Router();
-const decode = require('../middleware/trans');
-const fetchuser = decode.fetchUser;
+
+// Every transaction route requires a logged-in shopkeeper.
+router.use(protect);
 
 router
-    .get('/',userController.getAlltransaction)
-    .get('/gettrans/:id',fetchuser, userController.getTransaction)
-    .put('/updatetransaction/:id',userController.upadateTransaction)
-    .post('/createTransaction',fetchuser,userController.createTransaction)
-    .get('/getbyUser',fetchuser,userController.getTransactionbyUser)
-    .delete('/deletetrans/:id',userController.deleteTransactionbyUser);
+    .get('/',transController.getAlltransaction)
+    .get('/gettrans/:id',transController.getTransaction)
+    .put('/updatetransaction/:id',transController.upadateTransaction)
+    .post('/createTransaction',transController.createTransaction)
+    .get('/report',transController.getYearlyReport)
+    .get('/getbyUser',transController.getTransactionbyUser)
+    .delete('/deletetrans/:id',transController.deleteTransactionbyUser);
 
 exports.router = router;

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { Link } from 'react-router-dom';
 
 export default function Transview(props) {
@@ -12,7 +12,6 @@ export default function Transview(props) {
     const [error, setError] = useState('');
 
     const leftoverPart = props.date.substring(10);
-    const baseUrl = process.env.REACT_APP_BASE_URL;
 
     const deleteTransaction = async (id) => {
         if (!window.confirm('Are you sure you want to delete the transaction?')) {
@@ -23,23 +22,16 @@ export default function Transview(props) {
             const imageUrls = props.images || [];
 
             // Delete the transaction first.
-            const response = await axios.delete(
-                `${baseUrl}/trans/deletetrans/${id}`
-            );
+            const response = await api.delete(`/trans/deletetrans/${id}`);
 
             console.log('Transaction deleted:', response.data);
 
             // Delete associated Cloudinary images, if any.
             if (imageUrls.length > 0) {
                 try {
-                    const imageResponse = await axios.delete(
-                        `${baseUrl}/uploads/deleteimage`,
-                        {
-                            data: { imageUrls },
-                            headers: {
-                                'Content-Type': 'application/json'
-                            }
-                        }
+                    const imageResponse = await api.delete(
+                        '/uploads/deleteimage',
+                        { data: { imageUrls } }
                     );
 
                     console.log('Images deleted:', imageResponse.data);
@@ -54,7 +46,10 @@ export default function Transview(props) {
             window.location.reload();
         } catch (error) {
             console.error('Error deleting transaction:', error);
-            window.alert('Unable to delete the transaction.');
+            window.alert(
+                error.response?.data?.message ||
+                'Unable to delete the transaction.'
+            );
         }
     };
 
@@ -64,8 +59,8 @@ export default function Transview(props) {
         try {
             const fullDate = date + leftoverPart;
 
-            const response = await axios.put(
-                `${baseUrl}/trans/updatetransaction/${props.id}`,
+            const response = await api.put(
+                `/trans/updatetransaction/${props.id}`,
                 {
                     amount,
                     description,
@@ -79,7 +74,10 @@ export default function Transview(props) {
             window.location.reload();
         } catch (error) {
             console.error('Error updating transaction:', error);
-            setError('Unable to update the transaction.');
+            setError(
+                error.response?.data?.message ||
+                'Unable to update the transaction.'
+            );
         }
     };
 
@@ -115,6 +113,7 @@ export default function Transview(props) {
                                     Date: {reversedDate}
                                 </p>
 
+                                {!props.readOnly && (
                                 <button
                                     className="btn btn-primary"
                                     onClick={() => {
@@ -124,6 +123,7 @@ export default function Transview(props) {
                                 >
                                     Update
                                 </button>
+                                )}
 
                                 {/* Pass this transaction's ID in the URL */}
                                 <Link
@@ -133,12 +133,14 @@ export default function Transview(props) {
                                     View Bills
                                 </Link>
 
+                                {!props.readOnly && (
                                 <button
                                     className="btn btn-primary"
                                     onClick={() => deleteTransaction(props.id)}
                                 >
                                     Delete
                                 </button>
+                                )}
                             </div>
                         </div>
                     </div>

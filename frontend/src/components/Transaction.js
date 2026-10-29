@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Transview from './Transview';
-import axios from 'axios';
+import api from '../api';
+import { useAuth } from '../context/AuthContext';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
@@ -17,7 +18,8 @@ function set_date(date)
     return reversedDate;
 }
 
-function save_pdf(name,transactions,balance) {
+function save_pdf(name,transactions,balance,shopName) {
+    const yearLabel = transactions.financialYear;
     const pdf = new jsPDF();
 
     pdf.setProperties({
@@ -25,10 +27,10 @@ function save_pdf(name,transactions,balance) {
     });
 
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Ganapati General Store', 5, 9);
+    pdf.text(shopName || '', 5, 9);
     pdf.setFontSize(15);
     pdf.text('Accounting Software',150,6);
-    pdf.text('Balance Report', 150, 12);
+    pdf.text(`Balance Report ${yearLabel ? `FY ${yearLabel}` : ''}`, 150, 12);
 
     pdf.setLineWidth(1);
     pdf.line(0, 14, 260, 14);
@@ -93,68 +95,39 @@ function save_pdf(name,transactions,balance) {
 
 export default function Transaction() {
     const [transaction, setTransaction] = useState(null);
+    // null means the current financial year (1 April - 31 March).
+    const [fy, setFy] = useState(null);
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [errorMessage, setErrorMessage] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
 
+    const { shopkeeper } = useAuth();
     const name = localStorage.getItem('name');
-    const phonenum = localStorage.getItem('mob');
-    const baseUrl = process.env.REACT_APP_BASE_URL;
+    const customerId = localStorage.getItem('customerId');
 
     const getTransaction = async () => {
         try {
-            const response = await fetch(`${baseUrl}/trans/getbyUser`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'auth-token': localStorage.getItem('token')
-                }
+            const response = await api.get('/trans/getbyUser', {
+                params: { customerId, ...(fy ? { fy } : {}) }
             });
-
-            if (!response.ok) {
-                throw new Error('Failed to load transactions.');
-            }
-
-            const data = await response.json();
-            setTransaction(data);
+            setTransaction(response.data);
         } catch (error) {
             console.error('Error fetching transactions:', error);
             setErrorMessage('Unable to load transactions. Please try again.');
         }
     };
 
-    const message = async (to, amount) => {
+    // The server looks up the customer's number and balance itself.
+    const message = async () => {
         try {
-            if (!to) {
-                alert('Phone number is not available.');
-                return;
-            }
-
-            const formattedTo = to.startsWith('+') ? to : `+91${to}`;
-
-            const response = await fetch(`${baseUrl}/sms/send-sms`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    to: formattedTo,
-                    amount
-                })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                alert(data.message || 'Failed to send reminder SMS.');
-                return;
-            }
-
-            alert(data.message || 'Reminder SMS sent successfully.');
-            console.log(data);
+            const response = await api.post('/sms/send-sms', { customerId });
+            alert(response.data.message || 'Reminder SMS sent successfully.');
         } catch (error) {
             console.error('SMS error:', error);
-            alert('Unable to send the reminder SMS. Please try again.');
+            alert(
+                error.response?.data?.message ||
+                'Unable to send the reminder SMS. Please try again.'
+            );
         }
     };
 
@@ -173,45 +146,24 @@ export default function Transaction() {
                     formData.append('billimage', selectedFiles[i]);
                 }
 
-                const uploadResponse = await axios.post(
-                    `${baseUrl}/uploads/images`,
-                    formData,
-                    {
-                        headers: {
-                            'auth-token': localStorage.getItem('token')
-                        }
-                    }
+                const uploadResponse = await api.post(
+                    '/uploads/images',
+                    formData
                 );
 
                 imageUrls = uploadResponse.data;
             }
 
             // Create the transaction.
-            const response = await fetch(
-                `${baseUrl}/trans/createTransaction`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'auth-token': localStorage.getItem('token')
-                    },
-                    body: JSON.stringify({
-                        amount,
-                        description,
-                        type,
-                        img: imageUrls
-                    })
-                }
-            );
+            const response = await api.post('/trans/createTransaction', {
+                customerId,
+                amount,
+                description,
+                type,
+                img: imageUrls
+            });
 
-            const responseData = await response.json();
-
-            if (!response.ok) {
-                setErrorMessage(
-                    responseData.message || responseData.error || 'Failed to create transaction.'
-                );
-                return;
-            }
+            const responseData = response.data;
 
             setSuccessMessage(
                 responseData.message ||
@@ -254,7 +206,13 @@ export default function Transaction() {
 
     useEffect(() => {
         getTransaction();
-    }, [name]);
+    }, [name, fy]);
+
+    const readOnly = Boolean(transaction?.readOnly);
+    const yearOptions = transaction
+        ? Array.from({ length: 5 }, (_, i) => transaction.currentFy - i)
+        : [];
+    const yearText = (year) => `${year}-${String((year + 1) % 100).padStart(2, '0')}`;
 
     const [note, setNote] = useState({
         amount: 0,
@@ -275,6 +233,7 @@ export default function Transaction() {
 
     return (
         <div className="center">
+            {!readOnly && (
             <div className="container border rounded my-2">
                 <h1 style={{ fontFamily: 'Recursive' }}>
                     Add a Transaction for {name}
@@ -394,15 +353,46 @@ export default function Transaction() {
                     </div>
                 </form>
             </div>
+            )}
 
             <h3 className="mx-3 my-2 d-flex justify-content-center align-items-center">
                 -- Transactions for: {name} --
             </h3>
 
+            {transaction && (
+                <div className="d-flex justify-content-center align-items-center my-2">
+                    <label htmlFor="fy" className="me-2 fw-bold">Financial year</label>
+                    <select
+                        id="fy"
+                        className="form-select w-auto"
+                        value={transaction.fy}
+                        onChange={(e) => {
+                            const year = Number(e.target.value);
+                            setFy(year === transaction.currentFy ? null : year);
+                        }}
+                    >
+                        {yearOptions.map((year) => (
+                            <option key={year} value={year}>
+                                {yearText(year)}{year === transaction.currentFy ? ' (current)' : ''}
+                            </option>
+                        ))}
+                    </select>
+                    <span className="ms-3 text-muted">
+                        Totals restart on 1 April each year.
+                    </span>
+                </div>
+            )}
+
+            {readOnly && (
+                <div className="alert alert-secondary container text-center" role="alert">
+                    {transaction.financialYear} is a closed year. Its records are view-only.
+                </div>
+            )}
+
             <div className="d-flex justify-content-center align-items-center">
                 <button
                     onClick={() =>
-                        save_pdf(name, transaction, transaction?.balance)
+                        save_pdf(name, transaction, transaction?.balance, shopkeeper?.shopName)
                     }
                     className="btn btn-primary my-2 mx-2"
                     disabled={!transaction}
@@ -411,9 +401,9 @@ export default function Transaction() {
                 </button>
 
                 <button
-                    onClick={() => message(phonenum, transaction?.balance)}
+                    onClick={message}
                     className="btn btn-primary my-2"
-                    disabled={!transaction}
+                    disabled={!transaction || readOnly}
                 >
                     Reminder SMS
                 </button>
@@ -450,6 +440,7 @@ export default function Transaction() {
                                     type={trans.type}
                                     date={trans.date}
                                     images={trans.images}
+                                    readOnly={readOnly}
                                 />
                             ))}
                     </div>

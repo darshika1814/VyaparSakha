@@ -1,50 +1,87 @@
-const model = require("../model/bill")
-const Bill = model.Bill
+const { Bill } = require('../model/bill');
+const asyncHandler = require('../utils/asyncHandler');
+const { isValidId } = require('../utils/ids');
 
-exports.getAllProduct = async(req,res)=>{
-    const product = await Bill.find();
-    res.json(product);
+function parseProduct(body) {
+    const name = String(body.name || '').trim();
+    const price = Number(body.price);
+    const quantity = Number(body.quantity);
+
+    if (!name) return { error: 'Item name is required.' };
+    if (!Number.isFinite(price) || price < 0) return { error: 'Invalid price.' };
+    if (!Number.isFinite(quantity) || quantity < 0) return { error: 'Invalid quantity.' };
+
+    return { name, price, quantity };
 }
 
-exports.addProduct = async(req,res)=>{
-    const {name,price,quantity} = req.body;
+exports.getAllProduct = asyncHandler(async (req, res) => {
+    const products = await Bill.find({ shopkeeper: req.shopkeeper.id });
+    res.json(products);
+});
 
-    const oldProduct = await Bill.findOne({name: name});
-    if(oldProduct) res.json({Signal: "Product Already Exist"});
+exports.addProduct = asyncHandler(async (req, res) => {
+    const parsed = parseProduct(req.body);
+    if (parsed.error) return res.status(400).json({ message: parsed.error });
 
-    else
-    {
-        const Product = new Bill({name,price,quantity});
-        await Product.save();
-        res.json(Product)
+    try {
+        const product = await Bill.create({
+            shopkeeper: req.shopkeeper.id,
+            name: parsed.name,
+            price: parsed.price,
+            quantity: parsed.quantity
+        });
+        return res.status(201).json(product);
+    } catch (error) {
+        if (error.code === 11000) {
+            return res.status(409).json({ message: 'Product Already Exist' });
+        }
+        throw error;
     }
-}
+});
 
-exports.updateProduct = async(req,res)=>{
-    const { name, price, quantity } = req.body;
-    const id = req.params.id;
+exports.updateProduct = asyncHandler(async (req, res) => {
+    if (!isValidId(req.params.id)) {
+        return res.status(404).json({ message: 'Product not found.' });
+    }
 
-    // const updatedProduct = await Bill.findOneAndUpdate(
-    // { name: name },
-    // { price: price, quantity: quantity },
-    // { new: true } 
-    // );
+    const parsed = parseProduct(req.body);
+    if (parsed.error) return res.status(400).json({ message: parsed.error });
 
-    const updatedProduct = await Bill.findByIdAndUpdate(
-        id,
-        { name: name, price: price, quantity: quantity },
-        { new: true } 
-    )
+    try {
+        const updated = await Bill.findOneAndUpdate(
+            { _id: req.params.id, shopkeeper: req.shopkeeper.id },
+            { name: parsed.name, price: parsed.price, quantity: parsed.quantity },
+            { new: true }
+        );
+        if (!updated) {
+            return res.status(404).json({ message: 'Product not found.' });
+        }
+        return res.json(updated);
+    } catch (error) {
+        if (error.code === 11000) {
+            return res.status(409).json({ message: 'Product Already Exist' });
+        }
+        throw error;
+    }
+});
 
-    res.json(updatedProduct);
-}
+exports.deleteProduct = asyncHandler(async (req, res) => {
+    if (!isValidId(req.params.id)) {
+        return res.status(404).json({ message: 'Product not found.' });
+    }
 
-exports.deleteProduct = async(req,res)=>{
-    const product = await Bill.findByIdAndDelete(req.params.id);
-    res.json({success:"Successfully Deleted"});
-}
+    const deleted = await Bill.findOneAndDelete({
+        _id: req.params.id,
+        shopkeeper: req.shopkeeper.id
+    });
+    if (!deleted) {
+        return res.status(404).json({ message: 'Product not found.' });
+    }
+    res.json({ success: 'Successfully Deleted' });
+});
 
-exports.deleteAll = async(req,res)=>{
-    const response = await Bill.deleteMany();
-    res.json({success: "All Deleted"});
-}
+// Clears only this shopkeeper's invoice items.
+exports.deleteAll = asyncHandler(async (req, res) => {
+    await Bill.deleteMany({ shopkeeper: req.shopkeeper.id });
+    res.json({ success: 'All Deleted' });
+});

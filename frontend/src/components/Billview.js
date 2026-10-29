@@ -1,5 +1,5 @@
 import React,{useState} from 'react'
-import axios from 'axios';
+import api, { errorMessage } from '../api';
 
 export default function Billview(props) {
 
@@ -7,8 +7,6 @@ export default function Billview(props) {
   const [name,setName] = useState(props.name);
   const [price, setPrice] = useState(props.price);
   const [quantity, setQuantity] = useState(props.quantity);
-
-  const baseUrl = process.env.REACT_APP_BASE_URL;
 
   const handleUpdateClick = () => {
     setShowModal(true); 
@@ -18,29 +16,27 @@ export default function Billview(props) {
   const handleUpdateSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.put(`${baseUrl}/bill/updateproduct/${props.id}`, {
+      await api.put(`/bill/updateproduct/${props.id}`, {
         name,
         price,
         quantity,
       });
-      console.log(response.data);
-      setShowModal(false); 
+      setShowModal(false);
+      window.location.reload();
     } catch (error) {
-      console.error('Error updating product:', error);
+      window.alert(errorMessage(error, 'Unable to update the item.'));
     }
-    window.location.reload();
   };
 
   const deleteproduct = async (id)=>{
       try {
           if (window.confirm('Are you sure you want to remove the Product')){
-            const response = await axios.delete(`${baseUrl}/bill/deleteproduct/${id}`);
-            console.log(response.data);
+            await api.delete(`/bill/deleteproduct/${id}`);
             window.location.reload();
           }
         //Please see to reload something.....
       } catch (error) {
-        console.error('Error:', error.response.data); 
+        window.alert(errorMessage(error, 'Unable to remove the item.'));
       }
   }
 

@@ -2,7 +2,6 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 
 export default function Home() {
-    localStorage.clear();
   return (
     <div>
        <img src='https://cdn.corporatefinanceinstitute.com/assets/drawaing-account.jpeg' alt='home-pic' className='img-fluid' style={{width: 1535, height:628}} />
@@ -25,15 +24,15 @@ export default function Home() {
                     </div>
                     <div class="col-md-4 my-2">
                         <h5>Contact Us</h5>
-                        <p>Ward no.7 near public park</p>
-                        <p>Email: mgirdhar027@gmail.com</p>
-                        <p>Phone: 8955223080</p>
+                        <p>Main Office, Delhi</p>
+                        <p>Email: VyaparSakha@gmail.com</p>
+                        <p>Phone: 1234567890</p>
                     </div>
                     </div>
                     <div class="row">
                     <div class="col text-center">
                         <hr class="border-light"/>
-                        <p>&copy; 2024 Your Company. All rights reserved.</p>
+                        <p>&copy; 2026 VyaparSakha. All rights reserved.</p>
                     </div>
                     </div>
                 </div>

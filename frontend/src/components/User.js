@@ -1,27 +1,25 @@
-import axios from 'axios';
+import api, { errorMessage } from '../api';
 import React from 'react'
 import { Link } from 'react-router-dom';
 
 const User = (props)=> {
 
-    const baseUrl = process.env.REACT_APP_BASE_URL;
-
     const deleteUser = async (id) => {
       try {
           if (window.confirm('Are you sure you want to delete the user')){
-            const response = await axios.delete(`${baseUrl}/user/deleteUser/${id}`);
-            console.log(response.data);
+            await api.delete(`/user/deleteUser/${id}`);
             window.location.reload();
           }
         //Please see to reload something.....
       } catch (error) {
-        console.error('Error:', error.response.data); 
+        window.alert(errorMessage(error, 'Unable to delete the customer.'));
       }
     };
 
-    const setData = async (name,mobileno)=>{
-        const response = await axios.get(`${baseUrl}/user/verifyUser?mobileno=${mobileno}`);
-        localStorage.setItem("token",response.data);
+    // Remember which of this shopkeeper's customers is open. Access is
+    // controlled by the shopkeeper's login token, not by this value.
+    const setData = (id,name,mobileno)=>{
+        localStorage.setItem("customerId",id);
         localStorage.setItem("name",name);
         localStorage.setItem("mob",mobileno);
     }
@@ -36,7 +34,7 @@ const User = (props)=> {
                         <h5 className="card-title">Name: {props.name}</h5>
                         <p className="card-text">Phone No : {props.mobileno}</p>
                         <p className="card-text">City : {props.address}</p>
-                        <Link to="/transaction" className="btn btn-primary" onClick={()=>setData(props.name,props.mobileno)}>Transaction's</Link>
+                        <Link to="/transaction" className="btn btn-primary" onClick={()=>setData(props.id,props.name,props.mobileno)}>Transaction's</Link>
                         <button  className="btn btn-primary mx-2" onClick={()=>deleteUser(props.id)}>Delete</button>
                     </div>
                 </div>

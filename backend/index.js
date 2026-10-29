@@ -1,15 +1,14 @@
 require('node:dns').setServers(['8.8.8.8', '1.1.1.1']);
 require('dotenv').config();
 const mongoose = require('mongoose');
-const express = require('express');
-const morgan = require('morgan');
-const cors = require('cors');
-const userRouter = require('./routes/user');
-const transRouter = require('./routes/transaction');
-const cityRouter = require('./routes/city');
-const imageRouter = require('./routes/image');
-const billRouter = require('./routes/bill');
-const smsrouter = require('./routes/sms');
+
+// Refuse to start without a signing secret: tokens would be forgeable.
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  console.error('JWT_SECRET must be set to a random string of at least 32 characters.');
+  process.exit(1);
+}
+
+const app = require('./app');
 
 main().catch(err => console.log(err));
 async function main() {
@@ -17,26 +16,7 @@ async function main() {
   console.log('Database Connected');
 }
 
-const server = express();
-
-server.use(express.json({  extended: true })); 
-server.use(express.urlencoded({  extended: true }));
-server.use(morgan('default'));
-server.use(express.static('public'));
-server.use(cors());
-
-server.get('/',(req,res)=>{
-    res.send("Hello World");
-});
-
-server.use('/user',userRouter.router);
-server.use('/trans',transRouter.router);
-server.use('/city',cityRouter.router);
-server.use('/uploads',imageRouter.router);
-server.use('/bill',billRouter.router);
-server.use('/sms',smsrouter.router);
-
 const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
